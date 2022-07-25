@@ -1,0 +1,298 @@
+Build tests for your callout using the included class for the callout mock (WarehouseCalloutServiceMock) 
+and callout test class (WarehouseCalloutServiceTest) in the package. 
+You must have 100% test coverage to pass this challenge and assert values to prove that your logic is working as expected.
+
+MAINTENANCEREQUESTHELPER
+public class MaintenanceRequestHelper {
+ 
+
+    public static void updateWorkOrders(Map<Id, Case>  cases){
+ 
+
+        List<Case> maintenance_routineList = new List<Case>();
+ 
+
+        List<Product2> listProduct = [select Id, Maintenance_Cycle__c from Product2];  
+ 
+
+        Map<Id,decimal> mapProduct = new Map<Id, decimal>();
+ 
+
+        for (Product2 p : listProduct) {
+ 
+
+            if (p != null) {
+ 
+
+                if(p.Maintenance_Cycle__c != null){
+ 
+
+                    mapProduct.put(p.Id, p.Maintenance_Cycle__c);
+ 
+
+                }               
+ 
+
+            }
+ 
+
+        }
+ 
+
+        System.debug('### product: '+mapProduct);
+ 
+
+        for(Case maintenance:cases.values()){
+ 
+
+            Case maintenanceNew = new Case();
+ 
+
+            maintenanceNew.Subject = 'Routine Maintenance';
+ 
+
+            System.debug('### Second: '+mapProduct.get(maintenance.Equipment__c));
+ 
+
+            if (mapProduct.get(maintenance.Equipment__c) != null) {
+ 
+
+                 maintenanceNew.Date_Due__c = Date.today().addDays(Integer.valueOf(mapProduct.get(maintenance.Equipment__c)));
+ 
+
+            }
+ 
+
+            maintenanceNew.Vehicle__c = maintenance.Vehicle__c;
+ 
+
+            maintenanceNew.Product__c = maintenance.Product__c;
+ 
+
+            maintenanceNew.ContactId  = maintenance.ContactId;
+ 
+
+            maintenanceNew.AccountId  = maintenance.AccountId;
+ 
+
+            maintenanceNew.AssetId    = maintenance.AssetId;
+ 
+
+            maintenanceNew.Type       = 'Routine Maintenance';
+ 
+
+            maintenanceNew.Status     = 'New';
+ 
+
+            maintenanceNew.Subject    = maintenance.Subject;
+ 
+
+            maintenanceNew.Equipment__c = maintenance.Equipment__c;
+ 
+
+            maintenanceNew.Date_Reported__c = Date.today();
+ 
+
+            maintenance_routineList.add(maintenanceNew);
+ 
+
+        }
+ 
+
+        insert maintenance_routineList;
+ 
+
+    }
+ 
+
+}
+ 
+
+MAINTENANCEREQUESTTRIGGER
+
+trigger MaintenanceRequest on Case (after update) {
+ 
+
+    //List<Case> casesToEvaluate = new List<Case>();
+ 
+
+    Map<Id, Case> casesToEvaluate = new Map<Id, Case>();
+ 
+
+    if(Trigger.isAfter && Trigger.isUpdate){
+ 
+
+        for(Case maintenance:Trigger.new){
+ 
+
+            if((maintenance.Type.contains('Repair') || maintenance.Type.contains('Routine Maintenance')) && maintenance.Status == 'Closed'){
+ 
+
+                casesToEvaluate.put(maintenance.Id,maintenance);
+ 
+
+            }
+ 
+
+        }       
+ 
+
+    }
+ 
+
+    MaintenanceRequestHelper.updateWorkOrders(casesToEvaluate);
+ 
+
+}
+ 
+
+MAINTENANCEREQUESTHELPERTEST
+
+@isTest
+ 
+
+private class MaintenanceRequestHelperTest {
+ 
+
+    @isTest static void test_method_one() {
+ 
+
+        List<Case> caseList = new List<Case>();
+ 
+
+        List<Case> secondList = new List<Case>();
+ 
+
+        Account acc = new Account();
+ 
+
+        acc.Name = 'test';
+ 
+
+        insert acc;
+ 
+
+        Contact contact = new Contact();
+ 
+
+        contact.FirstName = 'test';
+ 
+
+        contact.LastName = 'last';
+ 
+
+        contact.Email = 'test@test.com';
+ 
+
+        contact.AccountId = acc.Id;
+ 
+
+        insert contact;
+ 
+
+        Vehicle__c vehicle = new Vehicle__c();
+ 
+
+        vehicle.Name = 'car';
+ 
+
+        insert vehicle;
+ 
+
+        Product2 product = new Product2();
+ 
+
+        product.Name = 'test';
+ 
+
+        product.isActive = true;
+ 
+
+        product.Maintenance_Cycle__c = 2;
+ 
+
+        product.Replacement_Part__c = true;
+ 
+
+        insert product;
+ 
+
+        for(Integer i=1;i<=1000;i++){
+ 
+
+            Case maintenanceNew             = new Case();
+ 
+
+            maintenanceNew.Subject          = 'Other';
+ 
+
+            maintenanceNew.Vehicle__c       = vehicle.Id;
+ 
+
+            maintenanceNew.Product__c       = product.Id;
+ 
+
+            maintenanceNew.ContactId        = contact.Id;
+ 
+
+            maintenanceNew.AccountId        = acc.Id;
+ 
+
+            maintenanceNew.Type             = 'Other';
+ 
+
+            maintenanceNew.Status           = 'New';
+ 
+
+            maintenanceNew.Equipment__c     = product.Id;
+ 
+
+            maintenanceNew.Date_Reported__c = Date.today();
+ 
+
+            maintenanceNew.Date_Due__c      = Date.today();
+ 
+
+            caseList.add(maintenanceNew);   
+ 
+
+        }
+ 
+
+        insert caseList;
+ 
+
+        System.assertEquals(1000,caseList.size());
+ 
+
+        for(Case cas:caseList){
+ 
+
+            //update information
+ 
+
+            cas.Type = 'Repair';
+ 
+
+            cas.Status = 'Closed';
+ 
+
+            secondList.add(cas);
+ 
+
+        }
+ 
+
+        update secondList;
+ 
+
+        List<Case> createdCases = [Select Id from Case where Type = 'Routine Maintenance'];
+ 
+
+        System.assertEquals(1000,createdCases.size());
+ 
+
+    }   
+ 
+
+}
